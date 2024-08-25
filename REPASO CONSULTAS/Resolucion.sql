@@ -16,7 +16,7 @@ JOIN vendedores V ON F.cod_vendedor = V.cod_vendedor
 WHERE YEAR(F.fecha) IN (2010,2017,2018,2022)
 ORDER BY 'Cliente'
 
-/*2. Emitir un reporte con los datos de todos los vendedores Si el vendedor ha
+/*2. Emitir un reporte con los datos DE TODOS los vendedores Si el vendedor ha
 tenido ventas en lo que va del año, muestre, además, el número de factura y
 la fecha de esas ventas.*/
 
@@ -40,7 +40,7 @@ V.ape_vendedor +', '+V.nom_vendedor 'VENDEDOR',
 C.ape_cliente +', '+C.nom_cliente 'CLIENTE',
 (DF.pre_unitario * DF.cantidad) 'IMPORTE',
 A.descripcion 'ARTICULO',
-STR(day(F.fecha))+'/'+STR(month(F.fecha))+'/'+STR(year(F.fecha)) 'FECHA' --eL STR() TIENE ESPACIOS AL USARLA
+DATENAME(DAY,F.fecha)+' '+DATENAME(MONTH,F.fecha)+' '+DATENAME(YEAR,F.fecha) 'FECHA'
 FROM facturas F
 JOIN vendedores V ON V.cod_vendedor = F.cod_vendedor
 JOIN clientes C ON C.cod_cliente = F.cod_cliente
@@ -49,7 +49,7 @@ JOIN articulos A ON A.cod_articulo = DF.cod_articulo
 WHERE MONTH(F.fecha) IN (2,3)
 AND YEAR(F.fecha) IN (2016, 2020)
 AND A.descripcion LIKE '[A-M]%'
-ORDER BY 'FECHA' --Me falta sacarle la hora a la fecha.
+ORDER BY 'FECHA' --MEJORAR LA MUESTRA DE LA FECHA, (HAY ERRORES EN EL ORDENAMIENTO)
 
 /*4. Se necesita mostrar el código, nombre, apellido y dirección completa en una
 sola columna de los clientes cuyo nombre comience con “C” y cuyo apellido
@@ -67,11 +67,11 @@ JOIN vendedores V ON V.cod_vendedor = F.cod_vendedor
 JOIN barrios B ON B.cod_barrio = V.cod_barrio
 WHERE C.nom_cliente LIKE '[C]%'
 AND C.ape_cliente LIKE '%[Z]'
-AND B.barrio NOT LIKE '[N-P]' -- CONTROLAR ESTE PUNTO
-AND (C.[e-mail] IS NULL OR C.nro_tel IS NULL)
+AND (B.barrio NOT LIKE '%[N-P]%'
+OR C.[e-mail] IS NOT NULL 
+OR C.nro_tel IS NOT NULL)
 AND DATEDIFF(YEAR,V.fec_nac,GETDATE()) > 50
 AND LEN(V.calle) > 5
-
 
 /*5. Muestre los datos de los vendedores, cuyo cumpleaños sea el mes que viene
 (mes siguiente al actual), haya nacido en la década del 90 y que haya realizado
@@ -81,15 +81,14 @@ SELECT  V.ape_vendedor +', '+V.nom_vendedor 'VENDEDOR',
 V.fec_nac 'FECHA DE CUMPLEAÑOS', F.fecha 'FECHAS DE VENTA'
 FROM vendedores V
 JOIN facturas F ON F.cod_vendedor = V.cod_vendedor
-WHERE MONTH(V.fec_nac) = MONTH(GETDATE())+2
+WHERE MONTH(V.fec_nac) = MONTH(GETDATE())+1
 AND YEAR(V.fec_nac) BETWEEN 1990 AND 1999
-AND MONTH(F.FECHA) = MONTH(GETDATE())-1
-AND YEAR(F.fecha) = YEAR(GETDATE())
+AND DATEDIFF(MONTH,F.fecha,GETDATE())= 1
 
 /*6. Listar los datos de los artículos vendidos del 1 al 10 de cada mes dentro del
 año en curso cuyo precio al que fue vendido sea menor al precio actual, que
 tenga observaciones conocidas, y que estén en el momento de reposición
-(stock mínimo menor o igual al stock actual.*/
+(stock mínimo menor o igual al stock actual).*/
 
 SELECT A.descripcion 'ARTICULO',F.fecha 'FECHA',
 A.stock_minimo 'STOCK MINIMO', A.stock 'STOCK ACTUAL'
@@ -106,15 +105,58 @@ AND A.stock_minimo >= A.stock
 cuyo precio sea inferior a 20. En ambos casos su descripción no debe
 comenzar con las letras “p”, “r” ni “v”, ni contener “h”, “j” ni “m”.*/
 
+SELECT A.descripcion 'ARTICULO',
+A.pre_unitario 'PRECIO', A.stock_minimo 'STOCK MINIMO'
+FROM ARTICULOS A
+WHERE (A.stock_minimo > 10
+OR A.pre_unitario < 20)
+AND A.descripcion NOT LIKE '[P,R,V]%'
+AND A.descripcion NOT LIKE '%[H,J,M]%'
+ORDER BY 1
+
 /*8. Se quiere saber qué artículos se vendieron, siempre que el precio unitario sin
 iva al que fue vendido no esté entre $100 y $500 y que las ventas hayan sido
 realizadas por vendedores nacidos en febrero, abril, mayo o septiembre.*/
+
+SELECT A.descripcion 'ARTICULO',
+DF.pre_unitario 'PRECIO VENDIDO',
+(DF.pre_unitario/1.21) 'PRECIO SIN IVA',
+V.ape_vendedor+', '+V.nom_vendedor 'VENDEDOR',
+V.fec_nac 'FECHA NACIMIENTO VENDEDOR'
+FROM detalle_facturas DF
+JOIN articulos A ON A.cod_articulo = DF.cod_articulo
+JOIN facturas F ON F.nro_factura = DF.nro_factura
+JOIN vendedores V ON V.cod_vendedor = F.cod_vendedor
+WHERE MONTH(V.fec_nac) IN (2,4,5,9) 
+AND (DF.pre_unitario / 1.21) NOT BETWEEN 100 AND 500	--PRECIO UNITARIO SIN IVA (EN ARGENTINA EL IVA ES DEL 21%)
+ORDER BY 1
 
 /*9. Emitir un reporte para informar qué artículos se vendieron, en las facturas
 cuyos números no estén entre 17 y 136. Liste la descripción, cantidad e
 importe (Importe=cantidad*pre_unitario). Ordenar por descripción y cantidad.
 No muestre las filas con valores duplicados. */
 
+SELECT DISTINCT DF.nro_factura'NUMERO FACTURA', A.descripcion 'DESCRIPCION',
+DF.cantidad 'CANTIDAD',
+(DF.pre_unitario*DF.cantidad) 'IMPORTE'
+FROM detalle_facturas DF
+JOIN articulos A ON A.cod_articulo = DF.cod_articulo
+WHERE DF.nro_factura NOT BETWEEN 17 AND 136
+ORDER BY 'DESCRIPCION','CANTIDAD'
+
 /*10. Emitir un reporte de artículos vendidos en el 2021 a menos de $ 300 por
-vendedores hayan sido menor de 35 años, a qué precios se vendieron y qué
+vendedores que hayan sido menor de 35 años, a qué precios se vendieron y qué
 precio tienen hoy. Mostrar el porcentaje de incremento.*/
+
+SELECT A.descripcion 'ARTICULO', F.fecha 'FECHA',
+DF.pre_unitario 'PRECIO VENDIDO', A.pre_unitario 'PRECIO ACTUAL',
+ROUND(((A.pre_unitario-DF.pre_unitario)/DF.pre_unitario)*100, 2) 'PORCENTAJE INCREMENTO', 
+V.ape_vendedor+', '+V.nom_vendedor 'VENDEDOR',V.fec_nac 'FECHA NACIMIENTO',
+DATEDIFF(YEAR,V.fec_nac,'31/12/2021')'EDAD EN 2021'
+FROM detalle_facturas DF
+JOIN articulos A ON DF.cod_articulo = A.cod_articulo
+JOIN facturas F ON F.nro_factura = DF.nro_factura
+JOIN vendedores V ON V.cod_vendedor = F.cod_vendedor
+WHERE YEAR(F.fecha) = 2021
+AND DF.pre_unitario < 300
+AND DATEDIFF(YEAR,V.fec_nac,'31/12/2021') < 35 --EDAD EN 2021 MENOR A 35

@@ -63,16 +63,7 @@ FROM articulos A
 de 5 unidades los últimos 3 meses.*/
 
 UPDATE articulos
-SET pre_unitario = pre_unitario * 1.035
-WHERE cod_articulo NOT IN (SELECT DF.cod_articulo
-							FROM detalle_facturas DF
-							JOIN facturas F ON F.nro_factura = DF.nro_factura
-							WHERE DATEDIFF(MONTH,F.fecha,GETDATE()) BETWEEN 0 AND 4
-							GROUP BY DF.cod_articulo
-							HAVING SUM(DF.cantidad) > 5)
---OTRA FORMA
-UPDATE articulos
-SET pre_unitario = (pre_unitario * 0.035) + pre_unitario
+SET pre_unitario = pre_unitario - (pre_unitario * 0.035)
 WHERE cod_articulo IN (SELECT DF.cod_articulo
 							FROM detalle_facturas DF
 							JOIN facturas F ON F.nro_factura = DF.nro_factura
